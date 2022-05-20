@@ -11,6 +11,9 @@ public class CameraController : MonoBehaviour
 
 	private void Awake()
 	{
+		// TODO: Move this somewhere else maybe
+		Application.targetFrameRate = 60;
+
 		cam = GetComponent<Camera>();
 	}
 

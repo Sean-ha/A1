@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
-public class StructureBuilder : MonoBehaviour
+public class StructureBuilderManager : MonoBehaviour
 {
 	[SerializeField] private GameObject extractorBuilding;
+	[SerializeField] private GameObject generatorBuilding;
+	[SerializeField] private GameObject depotBuilding;
+
 
 	private TextMeshPro myTmp;
-
 	
 	private bool building;
 	private Vector2 currColliderSize;
@@ -23,11 +25,26 @@ public class StructureBuilder : MonoBehaviour
 		buildCollideLayer = LayerMask.GetMask("Structure");
 	}
 
-	public void BeginBuilding()
+	public IEnumerator BeginBuilding(InputAction buildAction)
 	{
-		currBuildGameObject = extractorBuilding;
+		switch (buildAction)
+		{
+			case InputAction.BuildExtractor:
+				currBuildGameObject = extractorBuilding;
+				break;
+			case InputAction.BuildGenerator:
+				currBuildGameObject = generatorBuilding;
+				break;
+			case InputAction.BuildDepot:
+				currBuildGameObject = depotBuilding;
+				break;
 
-		TextMeshPro buildingTmp = extractorBuilding.GetComponent<TextMeshPro>();
+			default:
+				Debug.LogError("Invalid action provided... shouldn't happen ever in theory... (" + buildAction.ToString() + ")");
+				break;
+		}
+
+		TextMeshPro buildingTmp = currBuildGameObject.GetComponent<TextMeshPro>();
 
 		// Copy the important values so the structure looks the exact same
 		myTmp.text = buildingTmp.text;
@@ -38,22 +55,19 @@ public class StructureBuilder : MonoBehaviour
 		myTmp.characterSpacing = buildingTmp.characterSpacing;
 		myTmp.wordSpacing = buildingTmp.wordSpacing;
 
-		BoxCollider2D buildingCollider = extractorBuilding.GetComponent<BoxCollider2D>();
-		currColliderSize = buildingCollider.size;		
+		BoxCollider2D buildingCollider = currBuildGameObject.GetComponent<BoxCollider2D>();
+		currColliderSize = buildingCollider.size;
 
 		building = true;
-	}
 
-	private void Update()
-	{
-		if (building)
+		while (building)
 		{
 			Vector3 newPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 			newPos.z = 0f;
 			transform.position = newPos;
 
 			Collider2D hit = Physics2D.OverlapBox(transform.position, currColliderSize, 0f, buildCollideLayer);
-			
+
 			// Not overlapping anything, is buildable
 			if (hit == null)
 			{
@@ -79,6 +93,8 @@ public class StructureBuilder : MonoBehaviour
 			{
 				myTmp.color = currColor * new Color(0.8f, 0.3f, 0.3f, 1f);
 			}
+
+			yield return null;
 		}
 	}
 
