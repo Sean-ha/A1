@@ -24,10 +24,22 @@ public class ActionsList : MonoBehaviour
 
 		actionsList = new List<ActionItem>
 		{
-			// TODO: Real actionables here
 			new ActionItem(KeyCode.Alpha1, InputAction.BuildExtractor, "1-extractor", () => ResourceManager.instance.HasEnoughResources(5, 0, 1, 0)),
 			new ActionItem(KeyCode.Alpha2, InputAction.BuildGenerator, "2-generator", () => ResourceManager.instance.HasEnoughResources(10, 0, 0, 0)),
 			new ActionItem(KeyCode.Alpha3, InputAction.BuildDepot, "3-depot", () => ResourceManager.instance.HasEnoughResources(10, 0, 1, 0))
+		};
+
+		UpdateUI();
+	}
+
+	public void SetDefaultTroopActions()
+	{
+		actionListTitleText.text = "troops";
+
+		actionsList = new List<ActionItem>
+		{
+			new ActionItem(KeyCode.Mouse1, InputAction.Move, "rmb-move", () => true),
+			new ActionItem(KeyCode.Alpha2, InputAction.BuildGenerator, "a+rmb-attack", () => true),
 		};
 
 		UpdateUI();

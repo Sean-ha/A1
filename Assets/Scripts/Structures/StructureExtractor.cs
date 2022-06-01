@@ -49,11 +49,23 @@ public class StructureExtractor : AStructure
 	{
 		if (action == InputAction.Connect)
 		{
+			DisconnectExtractor();
+
 			connection.gameObject.SetActive(true);
 			bool onCrystal = false;
 			Collider2D hover = null;
+
+			List<Collider2D> inRange = CheckCollisionsInRange(buildingLayer);
+
 			while (!Input.GetMouseButtonDown(0))
 			{
+				// Conditions for ending connection activity early
+				if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+				{
+					DisconnectExtractor();
+					yield break;
+				}
+
 				Vector2 mousePos = InputHandler.GetMousePos();
 
 				Vector2 startPoint = GetConnectionPointOnCollider(mousePos);
@@ -64,7 +76,8 @@ public class StructureExtractor : AStructure
 				// Not hovering over anything, endpoint is just mousePos
 				if (hover == null)
 				{
-					endPoint = mousePos;
+					onCrystal = false;
+					endPoint = GetClosestPointOnRange(mousePos);
 				}
 				// Hovering over something...
 				else
@@ -73,13 +86,23 @@ public class StructureExtractor : AStructure
 
 					if (structure.GetName() == "crystal") // Hovering over a crystal
 					{
-						startPoint = GetConnectionPointOnCollider(structure.GetCenter());
-						endPoint = structure.GetConnectionPointOnCollider(startPoint);
-						onCrystal = true;
+						if (inRange.Contains(hover)) // If crystal is in range
+						{
+							startPoint = GetConnectionPointOnCollider(structure.GetCenter());
+							endPoint = structure.GetConnectionPointOnCollider(startPoint);
+							onCrystal = true;
+						}
+						else
+						{
+							onCrystal = false;
+							endPoint = GetClosestPointOnRange(mousePos);
+						}
 					}
 					else // Hovering over non-crystal structure
-						endPoint = mousePos;
-
+					{
+						onCrystal = false;
+						endPoint = GetClosestPointOnRange(mousePos);
+					}
 				}
 
 				connection.SetPosition(0, startPoint);
@@ -96,14 +119,12 @@ public class StructureExtractor : AStructure
 			}
 			else // Clicked on anything non-crystal, connection not successful
 			{
-				connection.gameObject.SetActive(false);
-				connected = false;
+				DisconnectExtractor();
 			}
 		}
 		else if (action == InputAction.Disconnect)
 		{
-			connection.gameObject.SetActive(false);
-			connected = false;
+			DisconnectExtractor();
 		}
 
 		yield return null;
@@ -126,11 +147,23 @@ public class StructureExtractor : AStructure
 				extractPiece.transform.DOScale(new Vector3(0f, 0f, 1f), 0.15f).OnComplete(() =>
 				{
 					extractPiece.SetActive(false);
-					ResourceManager.instance.GainShards(4);
+					ResourceManager.instance.GainShards(5);
 				});
 			});
 
-			yield return new WaitForSeconds(1.5f);
+			yield return new WaitForSeconds(1f);
 		}
+	}
+
+	private void DisconnectExtractor()
+	{
+		if (extractCR != null)
+			StopCoroutine(extractCR);
+
+		connection.gameObject.SetActive(false);
+		connected = false;
+
+		extractPiece.transform.DOKill();
+		extractPiece.SetActive(false);
 	}
 }

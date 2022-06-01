@@ -86,4 +86,17 @@ public class ResourceManager : MonoBehaviour
 		currFood += amount;
 		UpdateUI();
 	}
+
+	public void UseResources(int shards, int dust, int energy, int food)
+	{
+		if (!HasEnoughResources(shards, dust, energy, food))
+			return;
+
+		currShards -= shards;
+		currDust -= dust;
+		currEnergy += energy;
+		currFood += food;
+
+		UpdateUI();
+	}
 }

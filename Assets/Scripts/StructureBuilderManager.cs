@@ -11,6 +11,7 @@ public class StructureBuilderManager : MonoBehaviour
 
 
 	private TextMeshPro myTmp;
+	private CircleRenderer circleRenderer;
 	
 	private bool building;
 	private Vector2 currColliderSize;
@@ -23,6 +24,7 @@ public class StructureBuilderManager : MonoBehaviour
 	{
 		myTmp = GetComponent<TextMeshPro>();
 		buildCollideLayer = LayerMask.GetMask("Structure");
+		circleRenderer = transform.GetChild(0).GetComponent<CircleRenderer>();
 	}
 
 	public IEnumerator BeginBuilding(InputAction buildAction)
@@ -44,6 +46,14 @@ public class StructureBuilderManager : MonoBehaviour
 				break;
 		}
 
+		AStructure currStructure = currBuildGameObject.GetComponent<AStructure>();
+		// Occurs when player doesn't have enough resources
+		if (!ResourceManager.instance.HasEnoughResources(currStructure.shardCost, currStructure.dustCost, currStructure.energyCost, currStructure.foodCost))
+		{
+			yield break;
+		}
+
+
 		TextMeshPro buildingTmp = currBuildGameObject.GetComponent<TextMeshPro>();
 
 		// Copy the important values so the structure looks the exact same
@@ -58,10 +68,17 @@ public class StructureBuilderManager : MonoBehaviour
 		BoxCollider2D buildingCollider = currBuildGameObject.GetComponent<BoxCollider2D>();
 		currColliderSize = buildingCollider.size;
 
+		// Set radius
+		circleRenderer.gameObject.SetActive(true);
+		circleRenderer.DrawCircle(currStructure.GetRangeRadius(), 0.5f, true);
+
 		building = true;
 
 		while (building)
 		{
+			if (Input.GetKeyDown(KeyCode.Escape))
+				CancelBuild();
+
 			Vector3 newPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 			newPos.z = 0f;
 			transform.position = newPos;
@@ -72,19 +89,21 @@ public class StructureBuilderManager : MonoBehaviour
 			if (hit == null)
 			{
 				myTmp.color = currColor;
+				circleRenderer.SetColor(currColor);
 
 				if (Input.GetMouseButtonDown(0))
 				{
 					// Build structure here
-					print("Build structure");
-
 					Instantiate(currBuildGameObject, transform.position, Quaternion.identity);
+
+					currStructure = currBuildGameObject.GetComponent<AStructure>();
+					ResourceManager.instance.UseResources(currStructure.shardCost, currStructure.dustCost, currStructure.energyCost, currStructure.foodCost);
+
 					CancelBuild();
 				}
 				else if (Input.GetMouseButtonDown(1))
 				{
 					// Cancel build here
-					print("Cancel build");
 					CancelBuild();
 				}
 			}
@@ -92,6 +111,7 @@ public class StructureBuilderManager : MonoBehaviour
 			else
 			{
 				myTmp.color = currColor * new Color(0.8f, 0.3f, 0.3f, 1f);
+				circleRenderer.SetColor(currColor * new Color(0.8f, 0.3f, 0.3f, 1f));
 			}
 
 			yield return null;
@@ -102,5 +122,6 @@ public class StructureBuilderManager : MonoBehaviour
 	{
 		myTmp.text = "";
 		building = false;
+		circleRenderer.gameObject.SetActive(false);
 	}
 }

@@ -9,6 +9,12 @@ public abstract class AStructure : MonoBehaviour
 	[SerializeField] protected float range;
 	[SerializeField] protected string structureName;
 
+	// Cost to build one of these structures
+	[SerializeField] public int shardCost;
+	[SerializeField] public int dustCost;
+	[SerializeField] public int energyCost;
+	[SerializeField] public int foodCost;
+
 
 	// The action list that will show up when this structure is clicked
 	public virtual List<ActionItem> GetActionList()
@@ -68,5 +74,33 @@ public abstract class AStructure : MonoBehaviour
 	{
 		BoxCollider2D boxCol = GetComponent<BoxCollider2D>();
 		return boxCol.bounds.center;
+	}
+
+	public List<Collider2D> CheckCollisionsInRange(LayerMask layerMask)
+	{
+		BoxCollider2D boxCol = GetComponent<BoxCollider2D>();
+		ContactFilter2D filter = new ContactFilter2D();
+		filter.SetLayerMask(layerMask);
+
+		List<Collider2D> collisions = new List<Collider2D>();
+
+		Physics2D.OverlapCircle(boxCol.bounds.center, range, filter, collisions);
+
+		return collisions;
+	}
+
+	// Given a position, return the position on the range circle that is closest to that pos. Just returns pos is it's inside the range
+	public Vector2 GetClosestPointOnRange(Vector2 pos)
+	{
+		BoxCollider2D boxCol = GetComponent<BoxCollider2D>();
+
+		Vector2 center = boxCol.bounds.center;
+
+		if (Vector2.Distance(center, pos) <= range)
+			return pos;
+
+		Vector2 dir = pos - center;
+
+		return center + (dir.normalized * range);
 	}
 }

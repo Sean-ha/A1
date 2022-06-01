@@ -10,5 +10,8 @@ public enum InputAction
 	BuildDepot = 3,
 
 	Connect = 30,
-	Disconnect = 31
+	Disconnect = 31,
+
+	Move = 100,
+	
 }

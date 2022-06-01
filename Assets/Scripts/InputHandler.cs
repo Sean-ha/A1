@@ -8,19 +8,34 @@ public class InputHandler : MonoBehaviour
 	[SerializeField] private StructureBuilderManager structureBuilder;
 	[SerializeField] private ActionsList actionsList;
 
+	[SerializeField] private CircleRenderer rangeCircleObject;
+	[SerializeField] private RectangleRenderer troopSelectRectangle;
+
+	[SerializeField] private TroopSelector troopSelector;
+
 	private TextMeshPro currHoveredBuilding;
 	private int buildCollideLayer;
 
 	private TextMeshPro currSelectedBuilding;
 
+	private int troopLayerMask;
+	private List<ATroop> currDraggedTroops;
+	private ATroop[] currSelectedTroops = new ATroop[0];
+
+	private bool clickDown;
+	private Vector2 clickDownPos;
+
 	private void Awake()
 	{
 		buildCollideLayer = LayerMask.GetMask("Structure");
+		troopLayerMask = LayerMask.GetMask("Troop");
 	}
 
 	private void Start()
 	{
 		StartCoroutine(HandleDefaultInput());
+
+		currDraggedTroops = troopSelector.GetSelectedList();
 	}
 
 	public static Vector2 GetMousePos()
@@ -34,7 +49,7 @@ public class InputHandler : MonoBehaviour
 		Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 		mousePos.z = 0f;
 
-		Collider2D hit = Physics2D.OverlapBox(mousePos, new Vector2(0.01f, 0.01f), 0f, layerMask);
+		Collider2D hit = Physics2D.OverlapBox(mousePos, new Vector2(0.001f, 0.001f), 0f, layerMask);
 
 		return hit;
 	}
@@ -44,6 +59,8 @@ public class InputHandler : MonoBehaviour
 	{
 		while (true)
 		{
+			Vector2 mousePos = GetMousePos();
+
 			// HANDLE HOVERING OVER STRUCTURES ===
 
 			Collider2D hit = CheckMouseHover(buildCollideLayer);
@@ -73,57 +90,162 @@ public class InputHandler : MonoBehaviour
 			}
 
 
-			// HANDLE CLICKING STRUCTURES ===
+			// HANDLE CLICK BEHAVIOR ===
 			if (Input.GetMouseButtonDown(0))
-			{				
-				// Select the currently hovered building (and unselect previous one)
-				if (currHoveredBuilding != null)
+			{
+				clickDown = true;
+				clickDownPos = mousePos;
+
+				DeselectTroops();
+				troopSelector.ClearList();
+			}
+
+			if (clickDown)
+			{
+				troopSelectRectangle.gameObject.SetActive(true);
+				troopSelectRectangle.DrawRectangle(clickDownPos, mousePos, 0.15f, true);
+
+				troopSelector.UpdateArea(clickDownPos, mousePos);
+			}
+
+			if (Input.GetMouseButtonUp(0))
+			{
+				clickDown = false;
+				troopSelectRectangle.gameObject.SetActive(false);
+				troopSelector.Deactivate();
+
+				Vector2 clickUpPos = mousePos;
+				// If dragged a sufficient distance, or if any troops were selected, then do troop selection
+				// HANDLE SELECTING TROOPS ===
+				if (Vector2.Distance(clickDownPos, clickUpPos) > 0.15f || currDraggedTroops.Count > 0)
 				{
-					if (currSelectedBuilding != null)
-						currSelectedBuilding.fontStyle = FontStyles.Normal;
+					DeselectBuilding();
+					// Lock the currently selected troops
+					currSelectedTroops = currDraggedTroops.ToArray();
 
-					currSelectedBuilding = currHoveredBuilding;
-					AStructure structure = currHoveredBuilding.gameObject.GetComponent<AStructure>();
-
-					actionsList.UpdateActionsList(structure.GetActionList(), structure.GetName());
+					if (currDraggedTroops.Count == 0)
+						actionsList.SetDefaultBuildActions();
+					else
+						actionsList.SetDefaultTroopActions();
 				}
-				// Unselect selected building
+
+				// If not dragged a sufficient distance and no troops were selected, then do a single selection
 				else
 				{
-					if (currSelectedBuilding != null)
-						currSelectedBuilding.fontStyle = FontStyles.Normal;
+					// Not hovering over building, so select a troop if possible
+					if (currHoveredBuilding == null)
+					{
+						Collider2D hoverTroop = CheckMouseHover(troopLayerMask);
 
-					currSelectedBuilding = null;
-					actionsList.SetDefaultBuildActions();
+						if (hoverTroop != null)
+						{
+							DeselectBuilding();
+							ATroop troop = hoverTroop.GetComponent<ATroop>();
+							currSelectedTroops = new ATroop[] { troop };
+							troop.OutlineTroop();
+							actionsList.SetDefaultTroopActions();
+						}
+						else // Hovering over neither building nor troop
+						{
+							DeselectAll();
+						}
+					}
+					// HANDLE CLICKING STRUCTURES ===
+					// Select the currently hovered building (and unselect previous one)
+					else
+					{
+						if (currSelectedBuilding != null)
+							currSelectedBuilding.fontStyle = FontStyles.Normal;
+
+						currSelectedBuilding = currHoveredBuilding;
+						AStructure structure = currHoveredBuilding.gameObject.GetComponent<AStructure>();
+
+						actionsList.UpdateActionsList(structure.GetActionList(), structure.GetName());
+
+						// Show range
+						rangeCircleObject.transform.position = currSelectedBuilding.transform.position;
+						rangeCircleObject.gameObject.SetActive(true);
+						rangeCircleObject.DrawCircle(structure.GetRangeRadius(), .5f, true);
+						rangeCircleObject.SetColor(currSelectedBuilding.color);
+					}
 				}
+			}
+
+			// Deselect currently selected building or troops
+			if (Input.GetKeyDown(KeyCode.Escape))
+			{
+				DeselectAll();
 			}
 
 
 			// HANDLE ACTION INPUT ===
-			InputAction action = actionsList.HandleInput();
-
-			if (action != InputAction.None)
+			// Don't handle input if player is currently dragging
+			if (!clickDown)
 			{
-				if (currHoveredBuilding != null && currHoveredBuilding != currSelectedBuilding)
-					currHoveredBuilding.fontStyle = FontStyles.Normal;
+				InputAction action = actionsList.HandleInput();
 
-				// Nothing selected, do a build
-				if (currSelectedBuilding == null)
+				if (action != InputAction.None)
 				{
-					yield return structureBuilder.BeginBuilding(action);
-				}
-				// Something is selected, tell it to handle the input
-				else
-				{
-					AStructure selectedStructure = currSelectedBuilding.GetComponent<AStructure>();
-					yield return selectedStructure.HandleInput(action);
+					if (currHoveredBuilding != null && currHoveredBuilding != currSelectedBuilding)
+						currHoveredBuilding.fontStyle = FontStyles.Normal;
 
-					// Update actionsList after input has been handled in case it is now different
-					actionsList.UpdateActionsList(selectedStructure.GetActionList(), selectedStructure.GetName());
+					// Nothing selected, do a build
+					if (currSelectedBuilding == null && currSelectedTroops.Length == 0)
+					{
+						yield return structureBuilder.BeginBuilding(action);
+					}
+					// Building is selected, tell it to handle the input
+					else if (currSelectedBuilding != null)
+					{
+						AStructure selectedStructure = currSelectedBuilding.GetComponent<AStructure>();
+						yield return selectedStructure.HandleInput(action);
+
+						// Update actionsList after input has been handled in case it is now different
+						actionsList.UpdateActionsList(selectedStructure.GetActionList(), selectedStructure.GetName());
+					}
+					// Troops are selected, tell them to handle input
+					else if (currSelectedTroops.Length > 0)
+					{
+						foreach (ATroop troop in currSelectedTroops)
+						{
+							troop.HandleInput(action);
+						}
+					}
 				}
 			}
 
 			yield return null;
 		}
+	}
+
+	private void DeselectBuilding()
+	{
+		if (currSelectedBuilding != null)
+			currSelectedBuilding.fontStyle = FontStyles.Normal;
+
+		currSelectedBuilding = null;
+		rangeCircleObject.gameObject.SetActive(false);
+	}
+
+	private void DeselectTroops()
+	{
+		// Deselect troops
+		if (currSelectedTroops.Length > 0)
+		{
+			foreach (ATroop troop in currSelectedTroops)
+			{
+				troop.UnOutlineTroop();
+			}
+			currSelectedTroops = new ATroop[0];
+		}
+	}
+
+	private void DeselectAll()
+	{
+		DeselectBuilding();
+
+		DeselectTroops();
+
+		actionsList.SetDefaultBuildActions();
 	}
 }
