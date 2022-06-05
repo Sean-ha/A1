@@ -2,9 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using DG.Tweening;
 
 public class InputHandler : MonoBehaviour
 {
+	public GameObject target;
+
 	[SerializeField] private StructureBuilderManager structureBuilder;
 	[SerializeField] private ActionsList actionsList;
 
@@ -206,9 +209,27 @@ public class InputHandler : MonoBehaviour
 					// Troops are selected, tell them to handle input
 					else if (currSelectedTroops.Length > 0)
 					{
-						foreach (ATroop troop in currSelectedTroops)
+						target.transform.DOKill();
+						target.transform.position = mousePos;
+
+						target.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+
+						target.transform.DOScale(0f, 0.4f);
+
+						// Iterate over selected troops thrice: First time to release their nodes, second time to issue movement, then release nodes again
+						// The ordering of operations is necessary here.
+						for (int i = 0; i < currSelectedTroops.Length; i++)
 						{
-							troop.HandleInput(action);
+							currSelectedTroops[i].ReleaseCurrNode();
+						}
+						for (int i = 0; i < currSelectedTroops.Length; i++)
+						{
+							ATroop troop = currSelectedTroops[i];
+							troop.IssueMove(mousePos, currSelectedTroops, i);
+						}
+						for (int i = 0; i < currSelectedTroops.Length; i++)
+						{
+							currSelectedTroops[i].ReleaseDestinationNode();
 						}
 					}
 				}

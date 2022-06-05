@@ -5,19 +5,54 @@ using UnityEngine.AI;
 
 public class TroopDefault : ATroop
 {
-	private NavMeshAgent agent;
+	private Collider2D myCol;
+	
 
-	private void Start()
+	private void Awake()
 	{
-		agent = GetComponent<NavMeshAgent>();
-		agent.updateRotation = false;
-		agent.updateUpAxis = false;
-		agent.updatePosition = false;
-	}
+		myCol = GetComponent<Collider2D>();
+	}	
 
 	private void Update()
 	{
-		if (!stationary)
+
+		/*if (flocking)
+		{
+			// Check neighbors
+			ContactFilter2D filter = new ContactFilter2D();
+			filter.SetLayerMask(LayerMask.GetMask("Troop"));
+
+			List<Collider2D> collisions = new List<Collider2D>();
+			List<ATroop> neighbors = new List<ATroop>();
+
+			Physics2D.OverlapCircle(transform.position, 3f, filter, collisions);
+
+			foreach (Collider2D col in collisions)
+			{
+				neighbors.Add(col.GetComponent<ATroop>());
+			}
+
+			Vector2 alignment = CalculateAlignment(neighbors);
+			Vector2 cohesion = CalculateCohesion(neighbors);
+			Vector2 separation = CalculateSeparation(neighbors);
+
+			if (!temp)
+			{
+				velocity = agent.velocity;
+			}
+			else
+			{
+				temp = false;
+			}
+
+			velocity += alignment * alignmentWeight + cohesion * cohesionWeight + separation * separationWeight;
+			velocity = velocity.normalized * agent.speed;
+
+			agent.velocity = velocity;
+		}*/
+
+
+		/*if (!stationary)
 		{
 			if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance && (!agent.hasPath || agent.velocity.sqrMagnitude == 0f))
 			{
@@ -27,27 +62,8 @@ public class TroopDefault : ATroop
 			}
 			else
 			{
-				// Update position using NavMesh
-				Vector3 newPos = agent.nextPosition;
-				newPos.z = 0;
-				transform.position = newPos;
+				
 			}
-		}
-	}
-
-	private void OnTriggerStay2D(Collider2D collision)
-	{
-		if (stationary || forceMove)
-			return;
-
-		if (collision.gameObject.layer == 7) // Troop layer
-		{
-			if (collision.gameObject.GetComponent<ATroop>().stationary)
-			{
-				agent.SetDestination(transform.position);
-				stationary = true;
-				print(gameObject.name + " is stationary");
-			}
-		}
+		}*/
 	}
 }

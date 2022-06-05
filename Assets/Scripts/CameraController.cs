@@ -34,7 +34,7 @@ public class CameraController : MonoBehaviour
 		transform.position = newPos;
 
 		// Handle zoom
-		float scroll = Input.GetAxis("Mouse ScrollWheel");
+		/*float scroll = Input.GetAxis("Mouse ScrollWheel");
 		
 		if (scroll < 0f) // Scroll forwards: zoom in
 		{
@@ -49,6 +49,6 @@ public class CameraController : MonoBehaviour
 
 			if (cam.orthographicSize < 3f)
 				cam.orthographicSize = 3f;
-		}
+		}*/
 	}
 }
