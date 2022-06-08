@@ -28,13 +28,13 @@ public class Pathfinder : MonoBehaviour
 	}
 
 	// endOffset is the number of nodes to the right and upwards the destination should be at (from end)
-	public List<Node> FindPath(Vector2 start, Vector2 end)
+	public List<Node> FindPath(Vector2 start, Vector2 end, bool allowPathThroughReservedNodes = false)
 	{
 		Node startNode = grid.GetNodeFromWorldPos(start);
 		Node endNode = grid.GetNodeFromWorldPos(end);
 
 		// If destination is not walkable, use the closest node to destination that is walkable instead
-		if (!endNode.walkable || endNode.reservedByTroop)
+		if (!endNode.walkable || endNode.ownerTroop != null)
 		{
 			endNode = grid.GetClosestWalkableNode(endNode);
 		}
@@ -57,7 +57,10 @@ public class Pathfinder : MonoBehaviour
 
 			foreach (Node neighbor in grid.GetNeighbors(currNode))
 			{
-				if (!neighbor.walkable || neighbor.reservedByTroop || closedSet.Contains(neighbor)) // TODO: Probably check here for clearance based stuff I think?
+				if (!neighbor.walkable || closedSet.Contains(neighbor)) // TODO: Probably check here for clearance based stuff I think?
+					continue;
+
+				if (!allowPathThroughReservedNodes && neighbor.ownerTroop != null)
 					continue;
 
 				int newMoveCost = currNode.gCost + GetDistance(currNode, neighbor);

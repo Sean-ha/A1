@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,7 +16,14 @@ public abstract class ATroop : MonoBehaviour
 	// Current node (where troop currently is on grid)
 	private Node myCurrNode;
 
+	private List<Node> myWaypoints;
+
+	private TroopGroup myGroup;
+	private int myIndex;
+
 	private Coroutine moveCR;
+
+	private bool moving;
 
 	public void OutlineTroop()
 	{
@@ -34,87 +42,160 @@ public abstract class ATroop : MonoBehaviour
 		agent.SetDestination(destination);
 	}
 
+	public void GiveWaypoints(List<Node> incoming, Vector2 clickedPos)
+	{
+		myWaypoints = incoming;
+
+		if (moveCR != null)
+			StopCoroutine(moveCR);
+		moveCR = StartCoroutine(MoveAlongWaypoints(clickedPos));
+	}
+
+	public int SwapIndices(int incomingIndex)
+	{
+		int temp = myIndex;
+		myIndex = incomingIndex;
+		return temp;
+	}
+
 	public void ReleaseCurrNode()
 	{
 		if (myCurrNode != null)
-			myCurrNode.reservedByTroop = false;
+			myCurrNode.ownerTroop = null;
 	}
 
 	public void ReleaseDestinationNode()
 	{
 		if (myDestinationNode != null) // Don't release if troop is already at destination
-			myDestinationNode.reservedByTroop = false;
+			myDestinationNode.ownerTroop = null;
 
 		myDestinationNode = null;
 	}
 
 	// myIndex is this unit's position in the group array. Used to get the offset of this unit from destination
-	public void IssueMove(Vector2 destination, ATroop[] group, int myIndex)
+	public void IssueMove(Vector2 destination, TroopGroup group, int myIndex, InputAction action)
 	{
+		if (myGroup != null && myGroup != group) // Troop is part of a new group, remove self from previous group
+		{
+			myGroup.troopsInGroup.Remove(this);
+			myGroup.NotifyTroopsOfIndexUpdate();
+		}
+
+		myGroup = group;
+		this.myIndex = myIndex;
+
 		Pathfinder pathfinder = Pathfinder.instance;
 
 		(int x, int y) myOffset;
-		if (group.Length > 0)
+		if (group.troopsInGroup.Count > 0)
 		{
-			int formationWidth = Mathf.CeilToInt(Mathf.Sqrt(group.Length));
+			int formationWidth = Mathf.CeilToInt(Mathf.Sqrt(group.troopsInGroup.Count));
 
-			myOffset = (myIndex % formationWidth, myIndex / formationWidth);
+			myOffset = (myIndex % formationWidth - (formationWidth / 2), myIndex / formationWidth - (formationWidth / 2));
 		}
 		else
 			myOffset = (0,0);
 
 		Node destinationNode = pathfinder.GetNodeFromWorldPos(destination, myOffset);
-		List<Node> waypoints = pathfinder.FindPath(transform.position, destinationNode.position);
+		myWaypoints = pathfinder.FindPath(transform.position, destinationNode.position);
 
-		if (myCurrNode != null)
-			myCurrNode.reservedByTroop = true;
+		if (myWaypoints == null)
+		{
+			print(gameObject.name + " is trying to go to an island right now");
+			if (moveCR != null)
+				StopCoroutine(moveCR);
 
-		if (waypoints.Count == 0) // If the path is just to the exact same position troop currently is at, do nothing
+			myWaypoints = pathfinder.FindPath(transform.position, destinationNode.position, allowPathThroughReservedNodes: true);
+		}
+
+		// TODO: Handling error when there is an island surrounded by structures / unwalkables (and not reserved spaces)
+
+
+		if (myWaypoints.Count == 0) // If the path is just to the exact same position troop currently is at, do nothing
+		{
+			if (myCurrNode != null)
+				myCurrNode.ownerTroop = this;
+
 			return;
+		}
 		else
-			myDestinationNode = waypoints[waypoints.Count - 1];
+			myDestinationNode = myWaypoints[myWaypoints.Count - 1];
 
 		if (myDestinationNode != null)
-			myDestinationNode.reservedByTroop = true;
+			myDestinationNode.ownerTroop = this;
 
-		if (waypoints.Count > 0)
+		if (myWaypoints.Count > 0)
 		{
 			if (moveCR != null)
 				StopCoroutine(moveCR);
-			moveCR = StartCoroutine(MoveAlongWaypoints(waypoints, destination, group, myIndex));
+			moveCR = StartCoroutine(MoveAlongWaypoints(destination));
 		}
 
 		// velocity = (destination - (Vector2)transform.position).normalized;
 	}
 
-	private IEnumerator MoveAlongWaypoints(List<Node> waypoints, Vector2 clickedPos, ATroop[] group, int myIndex)
+	private IEnumerator MoveAlongWaypoints(Vector2 clickedPos)
 	{
-		for (int i = 0; i < waypoints.Count; i++)
+		moving = true;
+
+		yield return null;
+
+		while (myWaypoints.Count > 0)
 		{
-			Node localDestination = waypoints[i];
+			Node localDestination = myWaypoints[0];
+			myWaypoints.RemoveAt(0);
 
 			// If unwalkable for timeUntilNewPath seconds, then find new path
-			float timeUntilNewPath = 0.6f;
-			while (!localDestination.walkable || (localDestination.reservedByTroop && localDestination != myCurrNode))
+			float timeUntilNewPath = 0.08f;
+			while (!localDestination.walkable || (localDestination.ownerTroop != null && localDestination != myCurrNode))
 			{
 				timeUntilNewPath -= Time.deltaTime;
 
 				if (timeUntilNewPath <= 0)
 				{
-					IssueMove(clickedPos, group, myIndex);
-					ReleaseDestinationNode();
-					yield break;
+					ATroop ownerTroop = localDestination.ownerTroop;
+					if (!localDestination.walkable)
+					{
+						IssueMove(clickedPos, myGroup, myIndex);
+						ReleaseDestinationNode();
+						yield break;
+					}
+					else if (ownerTroop != null && !ownerTroop.moving && localDestination.ownerTroop != this)
+					{
+						if (myGroup.troopsInGroup.Contains(ownerTroop)) // Blocking unit is in your group, tell it to move
+						{
+							ownerTroop.GiveWaypoints(myWaypoints, clickedPos);
+							int myOldIndex = myIndex;
+							myIndex = ownerTroop.SwapIndices(myIndex);
+							myGroup.troopsInGroup.SwapElements(myOldIndex, myIndex);
+
+							myWaypoints = new List<Node> { localDestination };
+							timeUntilNewPath = 7f;
+							// print("I am " + gameObject.name + ", I gave my waypoints to " + ownerTroop.name);
+							continue;
+						}
+						else // Blocking unit is not in your group, just stop here
+						{
+							print("ISLAND: Can't move further (" + gameObject.name + ")");
+
+							if (myCurrNode != null)
+								myCurrNode.ownerTroop = this;
+
+							moving = false;
+							yield break;
+						}
+					}					
 				}
 
 				yield return null;
 			}
 
-			if (myCurrNode != null)
-				myCurrNode.reservedByTroop = false;
+			if (myCurrNode != null && myCurrNode.ownerTroop == this)
+				myCurrNode.ownerTroop = null;
 
 			myCurrNode = localDestination;
 
-			myCurrNode.reservedByTroop = true;
+			myCurrNode.ownerTroop = this;
 
 			// destination = waypoints[i].position + Random.insideUnitCircle * 0.25f;
 
@@ -125,6 +206,8 @@ public abstract class ATroop : MonoBehaviour
 				yield return null;
 			}
 		}
+
+		moving = false;
 	}
 
 	public virtual void HandleInput(InputAction action)

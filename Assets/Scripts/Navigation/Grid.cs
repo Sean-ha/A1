@@ -88,7 +88,7 @@ public class Grid : MonoBehaviour
 
 	public Node GetClosestWalkableNode(Node node)
 	{
-		if (node.walkable && !node.reservedByTroop)
+		if (node.walkable && node.ownerTroop == null)
 			return node;
 
 		Queue<Node> openSet = new Queue<Node>(MaxSize);
@@ -102,7 +102,7 @@ public class Grid : MonoBehaviour
 
 			closedSet.Add(currNode);
 
-			if (currNode.walkable && !currNode.reservedByTroop)
+			if (currNode.walkable && currNode.ownerTroop == null)
 				return currNode;
 
 			foreach (Node neighbor in GetNeighbors(currNode))
@@ -134,7 +134,7 @@ public class Grid : MonoBehaviour
 					Gizmos.color = Color.black;
 				}
 
-				if (n.reservedByTroop)
+				if (n.ownerTroop != null)
 					Gizmos.color = Color.green;
 
 				Gizmos.DrawCube(n.position, Vector2.one * (nodeDiameter - 0.1f));

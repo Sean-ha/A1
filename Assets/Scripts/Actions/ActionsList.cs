@@ -24,9 +24,9 @@ public class ActionsList : MonoBehaviour
 
 		actionsList = new List<ActionItem>
 		{
-			new ActionItem(KeyCode.Alpha1, InputAction.BuildExtractor, "1-extractor", () => ResourceManager.instance.HasEnoughResources(5, 0, 1, 0)),
-			new ActionItem(KeyCode.Alpha2, InputAction.BuildGenerator, "2-generator", () => ResourceManager.instance.HasEnoughResources(10, 0, 0, 0)),
-			new ActionItem(KeyCode.Alpha3, InputAction.BuildDepot, "3-depot", () => ResourceManager.instance.HasEnoughResources(10, 0, 1, 0))
+			new ActionItem(() => Input.GetKeyDown(KeyCode.Alpha1), InputAction.BuildExtractor, "1-extractor", () => ResourceManager.instance.HasEnoughResources(5, 0, 1, 0)),
+			new ActionItem(() => Input.GetKeyDown(KeyCode.Alpha2), InputAction.BuildGenerator, "2-generator", () => ResourceManager.instance.HasEnoughResources(10, 0, 0, 0)),
+			new ActionItem(() => Input.GetKeyDown(KeyCode.Alpha3), InputAction.BuildDepot, "3-depot", () => ResourceManager.instance.HasEnoughResources(10, 0, 1, 0))
 		};
 
 		UpdateUI();
@@ -38,8 +38,8 @@ public class ActionsList : MonoBehaviour
 
 		actionsList = new List<ActionItem>
 		{
-			new ActionItem(KeyCode.Mouse1, InputAction.Move, "rmb-move", () => true),
-			new ActionItem(KeyCode.Alpha2, InputAction.BuildGenerator, "a+rmb-attack", () => true),
+			new ActionItem(() => Input.GetKeyDown(KeyCode.Mouse1) && !Input.GetKey(KeyCode.LeftShift), InputAction.Move, "rmb-move", () => true),
+			new ActionItem(() => Input.GetKeyDown(KeyCode.Mouse1) && Input.GetKey(KeyCode.LeftShift), InputAction.AttackMove, "shift+rmb-attack move", () => true),
 		};
 
 		UpdateUI();
@@ -72,10 +72,10 @@ public class ActionsList : MonoBehaviour
 	{
 		foreach (ActionItem item in actionsList)
 		{
-			if (Input.GetKeyDown(item.keyCode))
+			if (item.actionCondition.Invoke())
 			{
 				return item.inputAction;
-			}
+			}				
 		}
 
 		return InputAction.None;

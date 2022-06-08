@@ -4,6 +4,7 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 
+
 public class InputHandler : MonoBehaviour
 {
 	public GameObject target;
@@ -23,7 +24,8 @@ public class InputHandler : MonoBehaviour
 
 	private int troopLayerMask;
 	private List<ATroop> currDraggedTroops;
-	private ATroop[] currSelectedTroops = new ATroop[0];
+	private OrderedSet<ATroop> currSelectedTroops = new OrderedSet<ATroop>();
+	private TroopGroup currSelectedTroopGroup;
 
 	private bool clickDown;
 	private Vector2 clickDownPos;
@@ -124,7 +126,10 @@ public class InputHandler : MonoBehaviour
 				{
 					DeselectBuilding();
 					// Lock the currently selected troops
-					currSelectedTroops = currDraggedTroops.ToArray();
+					currSelectedTroops = new OrderedSet<ATroop>();
+					foreach (ATroop troop in currDraggedTroops)
+						currSelectedTroops.Add(troop);
+					currSelectedTroopGroup = new TroopGroup(currSelectedTroops);
 
 					if (currDraggedTroops.Count == 0)
 						actionsList.SetDefaultBuildActions();
@@ -144,7 +149,8 @@ public class InputHandler : MonoBehaviour
 						{
 							DeselectBuilding();
 							ATroop troop = hoverTroop.GetComponent<ATroop>();
-							currSelectedTroops = new ATroop[] { troop };
+							currSelectedTroops = new OrderedSet<ATroop> { troop };
+							currSelectedTroopGroup = new TroopGroup(currSelectedTroops);
 							troop.OutlineTroop();
 							actionsList.SetDefaultTroopActions();
 						}
@@ -193,7 +199,7 @@ public class InputHandler : MonoBehaviour
 						currHoveredBuilding.fontStyle = FontStyles.Normal;
 
 					// Nothing selected, do a build
-					if (currSelectedBuilding == null && currSelectedTroops.Length == 0)
+					if (currSelectedBuilding == null && currSelectedTroopGroup == null)
 					{
 						yield return structureBuilder.BeginBuilding(action);
 					}
@@ -207,7 +213,7 @@ public class InputHandler : MonoBehaviour
 						actionsList.UpdateActionsList(selectedStructure.GetActionList(), selectedStructure.GetName());
 					}
 					// Troops are selected, tell them to handle input
-					else if (currSelectedTroops.Length > 0)
+					else if (currSelectedTroopGroup != null)
 					{
 						target.transform.DOKill();
 						target.transform.position = mousePos;
@@ -216,21 +222,7 @@ public class InputHandler : MonoBehaviour
 
 						target.transform.DOScale(0f, 0.4f);
 
-						// Iterate over selected troops thrice: First time to release their nodes, second time to issue movement, then release nodes again
-						// The ordering of operations is necessary here.
-						for (int i = 0; i < currSelectedTroops.Length; i++)
-						{
-							currSelectedTroops[i].ReleaseCurrNode();
-						}
-						for (int i = 0; i < currSelectedTroops.Length; i++)
-						{
-							ATroop troop = currSelectedTroops[i];
-							troop.IssueMove(mousePos, currSelectedTroops, i);
-						}
-						for (int i = 0; i < currSelectedTroops.Length; i++)
-						{
-							currSelectedTroops[i].ReleaseDestinationNode();
-						}
+						currSelectedTroopGroup.IssueMoveOrder(action, mousePos);
 					}
 				}
 			}
@@ -251,13 +243,14 @@ public class InputHandler : MonoBehaviour
 	private void DeselectTroops()
 	{
 		// Deselect troops
-		if (currSelectedTroops.Length > 0)
+		if (currSelectedTroops.Count > 0)
 		{
 			foreach (ATroop troop in currSelectedTroops)
 			{
 				troop.UnOutlineTroop();
 			}
-			currSelectedTroops = new ATroop[0];
+			currSelectedTroops = new OrderedSet<ATroop>();
+			currSelectedTroopGroup = null;
 		}
 	}
 

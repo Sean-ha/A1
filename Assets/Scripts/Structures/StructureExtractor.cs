@@ -32,15 +32,15 @@ public class StructureExtractor : AStructure
 		{
 			return new List<ActionItem>
 			{
-				new ActionItem(KeyCode.Alpha1, InputAction.Connect, "1-connect", () => true),
-				new ActionItem(KeyCode.Alpha2, InputAction.Disconnect, "2-disconnect", () => true),
+				new ActionItem(() => Input.GetKeyDown(KeyCode.Alpha1), InputAction.Connect, "1-connect", () => true),
+				new ActionItem(() => Input.GetKeyDown(KeyCode.Alpha2), InputAction.Disconnect, "2-disconnect", () => true),
 			};
 		}
 		else
 		{
 			return new List<ActionItem>
 			{
-				new ActionItem(KeyCode.Alpha1, InputAction.Connect, "1-connect", () => true),
+				new ActionItem(() => Input.GetKeyDown(KeyCode.Alpha1), InputAction.Connect, "1-connect", () => true),
 			};
 		}
 	}

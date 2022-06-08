@@ -13,5 +13,5 @@ public enum InputAction
 	Disconnect = 31,
 
 	Move = 100,
-	
+	AttackMove = 101,
 }

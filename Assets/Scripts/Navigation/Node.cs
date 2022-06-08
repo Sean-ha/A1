@@ -17,9 +17,10 @@ public class Node : IHeapItem<Node>
 		get { return gCost + hCost; }
 	}
 
-	public bool reservedByTroop;
+	public ATroop ownerTroop;
 
 	public Node parent;
+	public Node reservedParent;
 
 	private int heapIndex;
 
