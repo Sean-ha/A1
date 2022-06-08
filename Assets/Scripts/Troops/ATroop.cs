@@ -20,10 +20,14 @@ public abstract class ATroop : MonoBehaviour
 
 	private TroopGroup myGroup;
 	private int myIndex;
+	private InputAction lastAction;
 
 	private Coroutine moveCR;
+	private Coroutine attackCR;
 
-	private bool moving;
+	private bool moving; // Whether the unit is in motion or stopped (reached its destination)
+
+	protected bool stoppedToAttack; // Whether the unit has paused movement in order to attack
 
 	public void OutlineTroop()
 	{
@@ -83,6 +87,7 @@ public abstract class ATroop : MonoBehaviour
 
 		myGroup = group;
 		this.myIndex = myIndex;
+		lastAction = action;
 
 		Pathfinder pathfinder = Pathfinder.instance;
 
@@ -108,14 +113,29 @@ public abstract class ATroop : MonoBehaviour
 			myWaypoints = pathfinder.FindPath(transform.position, destinationNode.position, allowPathThroughReservedNodes: true);
 		}
 
+
 		// TODO: Handling error when there is an island surrounded by structures / unwalkables (and not reserved spaces)
 
 
+		// HANDLE TROOP ATTACKING
+		if (attackCR != null)
+			StopCoroutine(attackCR);
+		if (action == InputAction.AttackMove)
+		{
+			attackCR = StartCoroutine(AttackFunction());
+		}
+		else
+		{
+			stoppedToAttack = false;
+		}
+
+		// HANDLE TROOP MOVEMENT
 		if (myWaypoints.Count == 0) // If the path is just to the exact same position troop currently is at, do nothing
 		{
 			if (myCurrNode != null)
 				myCurrNode.ownerTroop = this;
 
+			// TODO: Something when doing attack move here
 			return;
 		}
 		else
@@ -134,6 +154,8 @@ public abstract class ATroop : MonoBehaviour
 		// velocity = (destination - (Vector2)transform.position).normalized;
 	}
 
+	protected abstract IEnumerator AttackFunction();
+
 	private IEnumerator MoveAlongWaypoints(Vector2 clickedPos)
 	{
 		moving = true;
@@ -142,6 +164,8 @@ public abstract class ATroop : MonoBehaviour
 
 		while (myWaypoints.Count > 0)
 		{
+			yield return new WaitWhile(() => stoppedToAttack);
+
 			Node localDestination = myWaypoints[0];
 			myWaypoints.RemoveAt(0);
 
@@ -149,18 +173,20 @@ public abstract class ATroop : MonoBehaviour
 			float timeUntilNewPath = 0.08f;
 			while (!localDestination.walkable || (localDestination.ownerTroop != null && localDestination != myCurrNode))
 			{
+				yield return new WaitWhile(() => stoppedToAttack); // Not sure about this being here
+
 				timeUntilNewPath -= Time.deltaTime;
 
 				if (timeUntilNewPath <= 0)
 				{
 					ATroop ownerTroop = localDestination.ownerTroop;
-					if (!localDestination.walkable)
+					if (!localDestination.walkable) // Some unwalkable thing is blocking you
 					{
-						IssueMove(clickedPos, myGroup, myIndex);
+						IssueMove(clickedPos, myGroup, myIndex, lastAction);
 						ReleaseDestinationNode();
 						yield break;
 					}
-					else if (ownerTroop != null && !ownerTroop.moving && localDestination.ownerTroop != this)
+					else if (ownerTroop != null && !ownerTroop.moving && localDestination.ownerTroop != this) // Some not moving troop is blocking you
 					{
 						if (myGroup.troopsInGroup.Contains(ownerTroop)) // Blocking unit is in your group, tell it to move
 						{

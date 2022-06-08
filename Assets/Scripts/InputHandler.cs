@@ -249,7 +249,7 @@ public class InputHandler : MonoBehaviour
 			{
 				troop.UnOutlineTroop();
 			}
-			currSelectedTroops = new OrderedSet<ATroop>();
+			currSelectedTroops.Clear();
 			currSelectedTroopGroup = null;
 		}
 	}

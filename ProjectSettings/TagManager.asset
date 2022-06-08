@@ -15,8 +15,8 @@ TagManager:
   - Troop
   - TroopSelector
   - Unwalkable
-  - 
-  - 
+  - TroopRange
+  - EnemyTroop
   - 
   - 
   - 
